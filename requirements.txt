@@ -1,0 +1,28 @@
+# Core dependencies
+torch>=2.0.0
+transformers>=4.30.0
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+pydantic>=2.0.0
+
+# Image processing
+pillow>=9.0.0
+numpy>=1.24.0
+
+# Visualization
+matplotlib>=3.7.0
+
+# PDF support (choose one or both)
+pymupdf>=1.23.0  # Preferred: faster and more reliable
+pdf2image>=1.16.0  # Alternative: requires poppler-utils system package
+
+# Model downloading
+huggingface-hub>=0.16.0
+
+# Optional: for API testing
+requests>=2.31.0
+
+# Jupyter notebook support (optional, for demo.ipynb)
+ipykernel>=6.25.0
+ipython>=8.14.0
+jupyter>=1.0.0
