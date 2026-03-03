@@ -1,5 +1,5 @@
-# VAV — ViT Attention Visualizer
-
+# VAV — ViT Attention Visualizer 
+### (Currently in the testing phase, only Jupyter Notebook is provided for quick validation.)
 <div align="center">
 
 ![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
@@ -24,13 +24,12 @@ Whether you're researching transformer architectures, debugging model behavior, 
 
 | Feature | Description |
 |---------|-------------|
-| 🎯 **CLS Attention** | Visualize the [CLS] token's attention over spatial patches for any layer and attention head |
 | 🔄 **Attention Rollout** | Smoothed attention flow across all layers using the Abnar & Zuidema (2020) method |
+| 🎯 **CLS Attention** | Visualize the [CLS] token's attention over spatial patches for any layer and attention head |
 | 📊 **All Layers Average** | Aggregate attention patterns across all encoder layers |
-| 🖼️ **Image Analysis** | Process single images with base64 encoding support |
-| 📄 **PDF Support** | Analyze multi-page PDF documents with per-page attention visualization |
-| 🚀 **FastAPI Backend** | RESTful API for integration into web applications |
-| 📓 **Jupyter Notebook** | Interactive demo notebook for exploration and experimentation |
+<!-- | 🖼️ **Image Analysis** | Process single images with base64 encoding support | -->
+<!-- | 📄 **PDF Support** | Analyze multi-page PDF documents with per-page attention visualization | -->
+<!-- | 🚀 **FastAPI Backend** | RESTful API for integration into web applications | -->
 
 ## 🛠️ Installation
 
@@ -50,14 +49,9 @@ cd VAV
 ### Step 2: Create a Virtual Environment (Recommended)
 
 ```bash
-# Using venv
-python -m venv venv
-
-# Activate virtual environment
-# On Windows:
-venv\Scripts\activate
-# On macOS/Linux:
-source venv/bin/activate
+# Using conda
+conda create -n VAV python==3.12
+conda activate VAV
 ```
 
 ### Step 3: Install Dependencies
@@ -81,7 +75,18 @@ VAV requires a pre-trained Vision Transformer model. You need to download the mo
 
 We recommend using **`google/vit-base-patch16-224`**, which is a well-tested ViT model with 12 layers and 12 attention heads.
 
-### Method 1: Using Hugging Face CLI (Recommended)
+### Method 1: Manual Download from Hugging Face Hub
+
+1. Visit [google/vit-base-patch16-224](https://huggingface.co/google/vit-base-patch16-224) on Hugging Face
+2. Navigate to the "Files and versions" tab
+3. Download the following files:
+   - `config.json`
+   - `preprocessor_config.json`
+   - `model.safetensors` (or `pytorch_model.bin`)
+4. Create a `vit/` directory in your project root
+5. Place all downloaded files in the `vit/` directory
+
+### Method 2: Using Hugging Face CLI (Recommended)
 
 1. **Install Hugging Face CLI** (if not already installed):
    ```bash
@@ -101,43 +106,6 @@ We recommend using **`google/vit-base-patch16-224`**, which is a well-tested ViT
    - `config.json` - Model configuration
    - `preprocessor_config.json` - Image processor configuration
    - `model.safetensors` or `pytorch_model.bin` - Model weights
-   - `tokenizer.json` (if applicable)
-
-### Method 2: Using Python Script
-
-Create a script `download_model.py`:
-
-```python
-from transformers import ViTImageProcessor, ViTForImageClassification
-
-model_name = "google/vit-base-patch16-224"
-local_path = "vit"
-
-print(f"Downloading {model_name} to {local_path}/...")
-processor = ViTImageProcessor.from_pretrained(model_name)
-model = ViTForImageClassification.from_pretrained(model_name)
-
-processor.save_pretrained(local_path)
-model.save_pretrained(local_path)
-
-print(f"Model saved to {local_path}/")
-```
-
-Run the script:
-```bash
-python download_model.py
-```
-
-### Method 3: Manual Download from Hugging Face Hub
-
-1. Visit [google/vit-base-patch16-224](https://huggingface.co/google/vit-base-patch16-224) on Hugging Face
-2. Navigate to the "Files and versions" tab
-3. Download the following files:
-   - `config.json`
-   - `preprocessor_config.json`
-   - `model.safetensors` (or `pytorch_model.bin`)
-4. Create a `vit/` directory in your project root
-5. Place all downloaded files in the `vit/` directory
 
 ### Alternative Models
 
@@ -149,7 +117,7 @@ You can use any Hugging Face ViT model that supports `ViTForImageClassification`
 
 To use a different model, change the `model_name_or_path` parameter in the code (e.g., `ViT(model_name_or_path="vit_large")` for a model in `vit_large/` directory).
 
-## 🚀 Quick Start
+## 🚀 Quick Start (with the testing image file "fish.pdf" provided)
 
 ### Option 1: Jupyter Notebook (Interactive)
 
@@ -158,14 +126,14 @@ To use a different model, change the `model_name_or_path` parameter in the code 
    jupyter notebook
    ```
 
-2. **Open `demo.ipynb`** in your browser
+2. **Open `demo.ipynb`** 
 
 3. **Run cells sequentially**:
    - Cell 0: Import dependencies
    - Cell 1: PDF processing setup
    - Cell 4-5: Initialize ViT model and analyzer
    - Cell 6: Visualize attention on an image
-
+<!-- 
 4. **Example visualization**:
    ```python
    from PIL import Image
@@ -206,7 +174,7 @@ To use a different model, change the `model_name_or_path` parameter in the code 
 
 3. **Access interactive API documentation**:
    - Open your browser and navigate to `http://localhost:8000/docs`
-   - Use the Swagger UI to test endpoints interactively
+   - Use the Swagger UI to test endpoints interactively -->
 
 ## 📚 Usage
 
@@ -237,7 +205,7 @@ VAV supports three visualization modes:
 | `head` | `int \| None` | `None` | Attention head index. `None` = average over all heads |
 | `mode` | `str` | `"cls"` | Visualization mode: `"cls"`, `"rollout"`, or `"all_layers"` |
 
-## 🔌 API Documentation
+<!-- ## 🔌 API Documentation
 
 ### Base URL
 
@@ -401,7 +369,7 @@ Images are automatically resized to the model's expected input size (typically 2
 | **CORS errors in browser** | The FastAPI app includes CORS middleware. Ensure you're making requests to the correct host and port. |
 | **Wrong heatmap for a layer** | For `mode="cls"`, use `layer` values 0-11 (for 12-layer ViT). Use `head` values 0-11 to visualize specific attention heads. |
 | **Model loading is slow** | First-time loading downloads tokenizer files. Subsequent loads are faster. Consider using `torch.compile()` for faster inference (PyTorch 2.0+). |
-| **Import errors** | Ensure all dependencies are installed: `pip install -r requirements.txt` |
+| **Import errors** | Ensure all dependencies are installed: `pip install -r requirements.txt` | -->
 
 ## 📖 References
 
