@@ -1,2 +1,16 @@
 /venv
 /vit
+/outputs
+/results
+/wandb
+/.pytest_cache
+/.mypy_cache
+/.ruff_cache
+/.ipynb_checkpoints
+*.log
+*.tmp
+*.egg-info/
+__pycache__/
+.vendor/
+.localpkgs/
+*.pdf
