@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import csv
+import re
 from collections import defaultdict
 from pathlib import Path
+from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,6 +16,51 @@ from vav.analysis import resize_heatmap
 def load_csv_rows(path: str | Path) -> list[dict[str, str]]:
     with Path(path).open("r", encoding="utf-8", newline="") as handle:
         return list(csv.DictReader(handle))
+
+
+def _checkpoint_sort_key(name: str) -> tuple[int, str]:
+    if name == "final":
+        return (10**9, name)
+    if name.startswith("epoch_"):
+        try:
+            return (int(name.split("_")[-1]), name)
+        except ValueError:
+            return (10**8, name)
+    return (10**7, name)
+
+
+def _checkpoint_to_epoch(checkpoint_name: str) -> Optional[int]:
+    if checkpoint_name.startswith("epoch_"):
+        try:
+            return int(checkpoint_name.split("_")[-1])
+        except ValueError:
+            return None
+    return None
+
+
+def _parse_overlay_file(file_path: Path) -> Optional[dict[str, object]]:
+    parts = file_path.stem.split("__")
+    if len(parts) < 3:
+        return None
+
+    sample_key = parts[0]
+    checkpoint = parts[1]
+    spec = "__".join(parts[2:])
+    match = re.fullmatch(r"(?P<mode>[a-z_]+)(?:_layer_(?P<layer>-?\d+))?(?:_head_(?P<head>-?\d+))?", spec)
+    if not match:
+        return None
+
+    mode = match.group("mode")
+    layer_text = match.group("layer")
+    head_text = match.group("head")
+    return {
+        "sample_key": sample_key,
+        "checkpoint": checkpoint,
+        "mode": mode,
+        "layer": None if layer_text is None else int(layer_text),
+        "head": None if head_text is None else int(head_text),
+        "file_path": file_path,
+    }
 
 
 def save_overlay_figure(
@@ -114,39 +161,63 @@ def plot_metric_curves(analysis_csv: str | Path, output_path: str | Path) -> Non
     plt.close(fig)
 
 
-def build_checkpoint_gallery(overlay_dir: str | Path, output_path: str | Path ,mode: str = "rollout") -> None:
+def build_checkpoint_gallery(
+    overlay_dir: str | Path,
+    output_path: str | Path,
+    *,
+    mode: str = "rollout",
+    cls_layer: Optional[int] = None,
+    cls_head: Optional[int] = None,
+    epochs: Optional[list[int]] = None,
+) -> None:
     if not Path(overlay_dir).exists():
         print(f"Overlay directory not found at {overlay_dir}, skipping checkpoint gallery.")
         return
     overlay_path = Path(overlay_dir)
-    files = sorted(overlay_path.glob(f"*{mode}.png"))
-    if not files:
-        print(f"No {mode} images found in {overlay_dir}, skipping checkpoint gallery.")
+    all_files = sorted(overlay_path.glob("*.png"))
+    parsed = [_parse_overlay_file(path) for path in all_files]
+    parsed = [item for item in parsed if item is not None]
+    if not parsed:
+        print(f"No valid overlay images found in {overlay_dir}, skipping checkpoint gallery.")
         return
-    sample_groups: dict[str, list[Path]] = defaultdict(list)
-    for file_path in files:
-        sample_key = file_path.stem.split("__")[0]
-        sample_groups[sample_key].append(file_path)
 
-    def checkpoint_sort_key(name: str) -> tuple[int, str]:
-        if name == "final":
-            return (10**9, name)
-        if name.startswith("epoch_"):
-            try:
-                return (int(name.split("_")[-1]), name)
-            except ValueError:
-                return (10**8, name)
-        return (10**7, name)
+    selected_epochs = None if epochs is None else set(epochs)
+    filtered: list[dict[str, object]] = []
+    for item in parsed:
+        item_mode = item["mode"]
+        if item_mode != mode:
+            continue
+        if mode == "cls":
+            item_layer = item["layer"]
+            item_head = item["head"]
+            if cls_layer is not None and item_layer != cls_layer:
+                continue
+            if cls_head is not None and item_head != cls_head:
+                continue
+
+        if selected_epochs is not None:
+            epoch_value = _checkpoint_to_epoch(str(item["checkpoint"]))
+            if epoch_value is None or epoch_value not in selected_epochs:
+                continue
+
+        filtered.append(item)
+
+    if not filtered:
+        print("No overlays matched gallery filters, skipping checkpoint gallery.")
+        return
+
+    sample_groups: dict[str, list[dict[str, object]]] = defaultdict(list)
+    for item in filtered:
+        sample_groups[str(item["sample_key"])].append(item)
 
     # Use a stable checkpoint column order shared by every sample row.
     checkpoint_names = sorted(
         {
-            file_path.stem.split("__")[1]
+            str(item["checkpoint"])
             for group in sample_groups.values()
-            for file_path in group
-            if len(file_path.stem.split("__")) >= 2
+            for item in group
         },
-        key=checkpoint_sort_key,
+        key=_checkpoint_sort_key,
     )
     if not checkpoint_names:
         print("No checkpoint names could be parsed, skipping checkpoint gallery.")
@@ -162,12 +233,10 @@ def build_checkpoint_gallery(overlay_dir: str | Path, output_path: str | Path ,m
     elif columns == 1:
         axes = np.array([[axis] for axis in axes])
 
-    for row_index, (sample_key, group_files) in enumerate(sorted(sample_groups.items())):
+    for row_index, (sample_key, group_items) in enumerate(sorted(sample_groups.items())):
         checkpoint_to_file: dict[str, Path] = {}
-        for file_path in group_files:
-            parts = file_path.stem.split("__")
-            if len(parts) >= 2:
-                checkpoint_to_file[parts[1]] = file_path
+        for item in group_items:
+            checkpoint_to_file[str(item["checkpoint"])] = Path(str(item["file_path"]))
 
         first_checkpoint = checkpoint_names[0]
         first_file = checkpoint_to_file.get(first_checkpoint)
@@ -209,14 +278,28 @@ def build_checkpoint_gallery(overlay_dir: str | Path, output_path: str | Path ,m
 
 def make_report_figures(
     *,
-    training_csv: str | Path,
-    analysis_csv: str | Path,
-    overlay_dir: str | Path,
+    input_dir: str | Path,
     output_dir: str | Path,
-    
+    type: str = "gallery",
+    gallery_mode: str = "rollout",
+    gallery_cls_layer: Optional[int] = None,
+    gallery_cls_head: Optional[int] = None,
+    gallery_epochs: Optional[list[int]] = None,
 ) -> None:
     figure_dir = Path(output_dir)
     figure_dir.mkdir(parents=True, exist_ok=True)
-    plot_training_curves(training_csv, figure_dir / "training_curves.png")
-    plot_metric_curves(analysis_csv, figure_dir / "attention_metrics.png")
-    build_checkpoint_gallery(overlay_dir, figure_dir / "checkpoint_gallery.png")
+    if type == "training_curves":
+        plot_training_curves(input_dir, figure_dir / "training_curves.png")
+    elif type == "attention_metrics":
+        plot_metric_curves(input_dir, figure_dir / "attention_metrics.png")
+    elif type == "gallery":
+        build_checkpoint_gallery(
+            input_dir,
+            figure_dir / "checkpoint_gallery.png",
+            mode=gallery_mode,
+            cls_layer=gallery_cls_layer,
+            cls_head=gallery_cls_head,
+            epochs=gallery_epochs,
+        )
+    else:
+        print(f"Unknown report figure type: {type}, skipping.")

@@ -140,14 +140,33 @@ Default head analysis for `cls`:
 ### 3. Build Report Figures
 
 ```bash
+# type: decide which diagram to generate (default is gallery)
+# input_dir: depends on which type you choose, for example:
+#  --input_dir outputs/cub_run/training_metrics.csv \
+#  --input_dir outputs/cub_analysis/analysis_metrics.csv \
+#  --input_dir outputs/cub_analysis/overlays 
+# output_dir: where to save report diagrams
+
 vav make-figures \
-  --training-csv outputs/cub_run/training_metrics.csv \
-  --analysis-csv outputs/cub_analysis/analysis_metrics.csv \
-  --overlay-dir outputs/cub_analysis/overlays \
-  --output-dir outputs/report_figures
+  --input_dir outputs/cub_run/training_metrics.csv \
+  --output-dir outputs/report_figures \
+  --type gallery \
 ```
 
-This generates:
+optional gallery combinations:
+
+```bash
+vav make-figures \
+  --input_dir outputs/cub_run/training_metrics.csv \
+  --output-dir outputs/report_figures \
+  --type gallery \
+  --gallery-mode cls \
+  --gallery-cls-layer 11 \
+  --gallery-cls-head 3 \
+  --gallery-epochs 0,1,3,5
+```
+
+This generates one of below:
 
 - `training_curves.png`
 - `attention_metrics.png`

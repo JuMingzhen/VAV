@@ -29,6 +29,10 @@ def _parse_head_list(text: str) -> list[int | None]:
     return heads
 
 
+def _parse_epochs_list(text: str) -> list[int]:
+    return [int(item.strip()) for item in text.split(",") if item.strip()]
+
+
 def _discover_checkpoints(checkpoints_dir: Path) -> list[Path]:
     candidates = [path for path in checkpoints_dir.iterdir() if path.is_dir()]
     epoch_candidates = [path for path in candidates if path.name.startswith("epoch_")]
@@ -160,10 +164,13 @@ def run_analyze_checkpoints(args: argparse.Namespace) -> None:
 
 def run_make_figures(args: argparse.Namespace) -> None:
     make_report_figures(
-        training_csv=args.training_csv,
-        analysis_csv=args.analysis_csv,
-        overlay_dir=args.overlay_dir,
+        input_dir=args.input_dir,
         output_dir=args.output_dir,
+        type=args.type,
+        gallery_mode=args.gallery_mode,
+        gallery_cls_layer=args.gallery_cls_layer,
+        gallery_cls_head=args.gallery_cls_head,
+        gallery_epochs=args.gallery_epochs,
     )
     print(f"Figures saved to {args.output_dir}")
 
@@ -207,10 +214,13 @@ def build_parser() -> argparse.ArgumentParser:
     analyze_parser.set_defaults(func=run_analyze_checkpoints)
 
     figures_parser = subparsers.add_parser("make-figures", help="Build report-ready figures from CSV outputs")
-    figures_parser.add_argument("--training-csv", required=True)
-    figures_parser.add_argument("--analysis-csv", required=True)
-    figures_parser.add_argument("--overlay-dir", required=True)
+    figures_parser.add_argument("--input-dir", required=True)
     figures_parser.add_argument("--output-dir", required=True)
+    figures_parser.add_argument("--type", default="gallery", choices=["gallery", "training_curves", "attention_metrics"])
+    figures_parser.add_argument("--gallery-mode", default="rollout", choices=["rollout", "all_layers", "cls"])
+    figures_parser.add_argument("--gallery-cls-layer", type=int, default=None)
+    figures_parser.add_argument("--gallery-cls-head", type=int, default=None)
+    figures_parser.add_argument("--gallery-epochs", type=_parse_epochs_list, default=None)
     figures_parser.set_defaults(func=run_make_figures)
 
     return parser
