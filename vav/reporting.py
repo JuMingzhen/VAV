@@ -44,6 +44,9 @@ def save_overlay_figure(
 
 
 def plot_training_curves(training_csv: str | Path, output_path: str | Path) -> None:
+    if not Path(training_csv).exists():
+        print(f"Training CSV not found at {training_csv}, skipping training curves.")
+        return
     rows = load_csv_rows(training_csv)
     epochs = [int(row["epoch"]) for row in rows]
     train_loss = [float(row["train_loss"]) if row["train_loss"] else np.nan for row in rows]
@@ -70,6 +73,9 @@ def plot_training_curves(training_csv: str | Path, output_path: str | Path) -> N
 
 
 def plot_metric_curves(analysis_csv: str | Path, output_path: str | Path) -> None:
+    if not Path(analysis_csv).exists():
+        print(f"Analysis CSV not found at {analysis_csv}, skipping metric curves.")
+        return
     rows = load_csv_rows(analysis_csv)
     grouped: dict[tuple[str, int, str], list[dict[str, str]]] = defaultdict(list)
     for row in rows:
@@ -108,10 +114,14 @@ def plot_metric_curves(analysis_csv: str | Path, output_path: str | Path) -> Non
     plt.close(fig)
 
 
-def build_checkpoint_gallery(overlay_dir: str | Path, output_path: str | Path) -> None:
+def build_checkpoint_gallery(overlay_dir: str | Path, output_path: str | Path ,mode: str = "rollout") -> None:
+    if not Path(overlay_dir).exists():
+        print(f"Overlay directory not found at {overlay_dir}, skipping checkpoint gallery.")
+        return
     overlay_path = Path(overlay_dir)
-    files = sorted(overlay_path.glob("*.png"))
+    files = sorted(overlay_path.glob(f"*{mode}.png"))
     if not files:
+        print(f"No {mode} images found in {overlay_dir}, skipping checkpoint gallery.")
         return
     sample_groups: dict[str, list[Path]] = defaultdict(list)
     for file_path in files:
@@ -148,6 +158,7 @@ def make_report_figures(
     analysis_csv: str | Path,
     overlay_dir: str | Path,
     output_dir: str | Path,
+    
 ) -> None:
     figure_dir = Path(output_dir)
     figure_dir.mkdir(parents=True, exist_ok=True)
