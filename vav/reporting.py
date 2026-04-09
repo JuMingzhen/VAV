@@ -128,8 +128,31 @@ def build_checkpoint_gallery(overlay_dir: str | Path, output_path: str | Path ,m
         sample_key = file_path.stem.split("__")[0]
         sample_groups[sample_key].append(file_path)
 
-    first_group = next(iter(sample_groups.values()))
-    columns = len(first_group)
+    def checkpoint_sort_key(name: str) -> tuple[int, str]:
+        if name == "final":
+            return (10**9, name)
+        if name.startswith("epoch_"):
+            try:
+                return (int(name.split("_")[-1]), name)
+            except ValueError:
+                return (10**8, name)
+        return (10**7, name)
+
+    # Use a stable checkpoint column order shared by every sample row.
+    checkpoint_names = sorted(
+        {
+            file_path.stem.split("__")[1]
+            for group in sample_groups.values()
+            for file_path in group
+            if len(file_path.stem.split("__")) >= 2
+        },
+        key=checkpoint_sort_key,
+    )
+    if not checkpoint_names:
+        print("No checkpoint names could be parsed, skipping checkpoint gallery.")
+        return
+
+    columns = len(checkpoint_names) + 1  # 1st column is shared input image
     rows = len(sample_groups)
     fig, axes = plt.subplots(rows, columns, figsize=(4 * columns, 4 * rows))
     if rows == 1 and columns == 1:
@@ -139,11 +162,43 @@ def build_checkpoint_gallery(overlay_dir: str | Path, output_path: str | Path ,m
     elif columns == 1:
         axes = np.array([[axis] for axis in axes])
 
-    for row_index, (_, group_files) in enumerate(sorted(sample_groups.items())):
-        for col_index, file_path in enumerate(sorted(group_files)):
+    for row_index, (sample_key, group_files) in enumerate(sorted(sample_groups.items())):
+        checkpoint_to_file: dict[str, Path] = {}
+        for file_path in group_files:
+            parts = file_path.stem.split("__")
+            if len(parts) >= 2:
+                checkpoint_to_file[parts[1]] = file_path
+
+        first_checkpoint = checkpoint_names[0]
+        first_file = checkpoint_to_file.get(first_checkpoint)
+        if first_file is None:
+            first_file = next(iter(checkpoint_to_file.values()))
+
+        with Image.open(first_file) as panel_image:
+            width, height = panel_image.size
+            split = width // 2
+            input_panel = panel_image.crop((0, 0, split, height))
+
+        input_axis = axes[row_index][0]
+        input_axis.imshow(input_panel)
+        input_axis.set_title(f"{sample_key}\nInput", fontsize=8)
+        input_axis.axis("off")
+
+        for col_index, checkpoint_name in enumerate(checkpoint_names, start=1):
             axis = axes[row_index][col_index]
-            axis.imshow(Image.open(file_path))
-            axis.set_title(file_path.stem.replace("__", "\n"), fontsize=8)
+            file_path = checkpoint_to_file.get(checkpoint_name)
+            if file_path is None:
+                axis.text(0.5, 0.5, "N/A", ha="center", va="center")
+                axis.set_title(checkpoint_name, fontsize=8)
+                axis.axis("off")
+                continue
+
+            with Image.open(file_path) as panel_image:
+                width, height = panel_image.size
+                split = width // 2
+                heatmap_panel = panel_image.crop((split, 0, width, height))
+            axis.imshow(heatmap_panel)
+            axis.set_title(checkpoint_name, fontsize=8)
             axis.axis("off")
 
     plt.tight_layout()

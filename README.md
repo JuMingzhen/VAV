@@ -1,23 +1,23 @@
-# VAV: ViT Attention Dynamics Toolkit
+# VAV: ViT Attention Visualization Toolkit
 
-VAV is now a small research toolkit for a course project on the intersection of cognitive science and artificial intelligence.
+VAV is a small research toolkit for probing into attention machanism of ViT (Vision Transformer).
+This is a project of NUS course: NST2062 Mind and Machine.
 
 The project studies a simple but useful question:
 
-**When a Vision Transformer is fine-tuned on a fine-grained bird classification task, does its attention gradually shift from diffuse/global patterns toward more task-relevant local regions?**
+**When a Vision Transformer is fine-tuned on a fine-grained bird classification task, does its attention gradually shift from diffuse/global patterns toward more task-relevant local regions? Are there any patterns connected with cognitive science?**
 
 This repository contains:
 
-- the original exploration notebook: [demo.ipynb](/C:/Users/JMZ/Desktop/Mind&Machine/VAV/demo.ipynb)
+- the original exploration notebook: [demo.ipynb]
 - an engineering-ready Python package: `vav/`
-- a CLI for training, checkpoint analysis, and figure generation
-- a report outline with theoretical grounding: [docs/report_outline.md](/C:/Users/JMZ/Desktop/Mind&Machine/VAV/docs/report_outline.md)
+- a CLI for training, checkpoint analysis, and report figure generation
+- a report outline with theoretical grounding: [docs/report_outline.md]
 
 ## Project Structure
 
 ```text
 VAV/
-├── demo.ipynb
 ├── docs/
 │   └── report_outline.md
 ├── tests/
@@ -29,7 +29,8 @@ VAV/
 │   ├── modeling.py
 │   ├── reporting.py
 │   └── training.py
-├── fish.pdf
+├── demo/
+|   └── demo.ipynb
 ├── pyproject.toml
 └── requirements.txt
 ```
@@ -59,12 +60,11 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
-The local `vit/` directory is still supported. If you already downloaded `google/vit-base-patch16-224` into `vit/`, the toolkit can use it directly.
-
 ## Dataset Layout
 
-The training pipeline expects the CUB-200-2011 dataset in one of these forms:
+You can download the dataset in [https://data.caltech.edu/records/65de6-vp158].
 
+The training pipeline expects the CUB-200-2011 dataset in form:
 ```text
 path/to/CUB_200_2011/
 ├── images.txt
@@ -75,13 +75,14 @@ path/to/CUB_200_2011/
 └── images/
 ```
 
-or
+## Model
 
-```text
-path/to/dataset_root/
-└── CUB_200_2011/
-    ├── images.txt
-    └── ...
+The toolkit supports all models wrapped by the Transformers library. 
+For this experiment, the following is recommended: [https://huggingface.co/google/vit-base-patch16-224-in21k].
+
+You can download it via this command (in terminal): 
+```bash
+python -c "from huggingface_hub import snapshot_download; snapshot_download('google/vit-base-patch16-224-in21k, local_dir='./model')"
 ```
 
 ## CLI Usage
@@ -90,7 +91,7 @@ path/to/dataset_root/
 
 ```bash
 vav train \
-  --dataset-root path/to/CUB_200_2011 \
+  --dataset-root CUB_200_2011 \
   --output-dir outputs/cub_run \
   --model-name-or-path vit \
   --epochs 5 \
@@ -102,6 +103,7 @@ This will:
 - save checkpoints under `outputs/cub_run/checkpoints/`
 - write `training_metrics.csv` with an `epoch=0` baseline
 - write `training_config.json`
+- record training process and upload to 'wandb' if turned on in args
 
 By default the saved checkpoints include `epoch_000`, `epoch_001`, `epoch_003`, `epoch_005`, and `final`.
 
@@ -109,7 +111,7 @@ By default the saved checkpoints include `epoch_000`, `epoch_001`, `epoch_003`, 
 
 ```bash
 vav analyze-checkpoints \
-  --dataset-root path/to/CUB_200_2011 \
+  --dataset-root CUB_200_2011 \
   --checkpoints-dir outputs/cub_run/checkpoints \
   --output-dir outputs/cub_analysis \
   --split test \
@@ -119,7 +121,7 @@ vav analyze-checkpoints \
 This will:
 
 - compute attention metrics across checkpoints
-- save overlay images to `outputs/cub_analysis/overlays/`
+- save overlay images (heatmaps) to `outputs/cub_analysis/overlays/`
 - write `analysis_metrics.csv`
 
 Default analysis modes:
@@ -151,29 +153,6 @@ This generates:
 - `attention_metrics.png`
 - `checkpoint_gallery.png`
 
-## Smoke-Test Friendly Example
-
-If you want to first confirm the pipeline works before running full training, use a tiny subset:
-
-```bash
-vav train \
-  --dataset-root path/to/CUB_200_2011 \
-  --output-dir outputs/smoke_run \
-  --epochs 1 \
-  --batch-size 2 \
-  --max-train-samples 16 \
-  --max-eval-samples 8
-```
-
-Then:
-
-```bash
-vav analyze-checkpoints \
-  --dataset-root path/to/CUB_200_2011 \
-  --checkpoints-dir outputs/smoke_run/checkpoints \
-  --output-dir outputs/smoke_analysis \
-  --num-probes 2
-```
 
 ## Course Framing
 
